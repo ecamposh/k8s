@@ -6,6 +6,8 @@
 # Reference: https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
 # Reference: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration/
 
+# Always upgrade first your system before running this bash script sudo apt update && sudo apt upgrade -y
+
 # Define version for packages needed
 KUBERNETES_VERSION=v1.33
 CRIO_VERSION=v1.33
