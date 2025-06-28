@@ -5,6 +5,7 @@
 # Modifications: Uses specified CRI-O and Kubernetes repositories, firewalld stopped/disabled, SELinux permanently set to permissive, global system upgrade removed
 # Additions: Warning about missing network plugin (including CoreDNS impact), suggestion on kubelet/kubeadm init order, network checks
 # Run as root or with sudo
+# Always remember to first upgrade global system 'dnf update -y' before executing the bash script.
 
 # Exit on error, unset variables, or pipeline failures
 set -euo pipefail
@@ -24,12 +25,6 @@ log() {
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
     log "ERROR: This script must be run as root or with sudo."
-    exit 1
-fi
-
-# Check if system is Rocky Linux 9
-if ! grep -q "Rocky Linux 9" /etc/os-release; then
-    log "ERROR: This script is designed for Rocky Linux 9."
     exit 1
 fi
 
