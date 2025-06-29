@@ -28,26 +28,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# Step 1: Check network connectivity
-log "Installing bind-utils to use nslookup..." 
-dnf install -y bind-utils >> "$LOG_FILE" 2>&1
-log "bind-utils installed."
-log "Checking network connectivity..."
-if ! ping -c 4 google.com >/dev/null 2>&1; then
-    log "ERROR: No internet connectivity. Please check your network."
-    exit 1
-fi
-if ! nslookup download.opensuse.org >/dev/null 2>&1; then
-    log "ERROR: DNS resolution failed for download.opensuse.org. Please check your DNS settings."
-    exit 1
-fi
-if ! nslookup pkgs.k8s.io >/dev/null 2>&1; then
-    log "ERROR: DNS resolution failed for pkgs.k8s.io. Please check your DNS settings."
-    exit 1
-fi
-log "Network connectivity and DNS resolution verified."
-
-# Step 2: Disable swap
+# Disable swap
 log "Disabling swap..."
 swapoff -a >> "$LOG_FILE" 2>&1
 sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
@@ -59,7 +40,7 @@ else
     exit 1
 fi
 
-# Step 3: Set SELinux to permissive permanently
+# Set SELinux to permissive permanently
 log "Setting SELinux to permissive mode permanently..."
 setenforce 0 >> "$LOG_FILE" 2>&1
 sed -i 's/^SELINUX=.*$/SELINUX=permissive/' /etc/selinux/config
@@ -71,7 +52,7 @@ else
     exit 1
 fi
 
-# Step 4: Stop and disable firewalld
+# Stop and disable firewalld
 log "Stopping and disabling firewalld..."
 systemctl stop firewalld >> "$LOG_FILE" 2>&1
 systemctl disable firewalld >> "$LOG_FILE" 2>&1
@@ -83,7 +64,7 @@ else
     exit 1
 fi
 
-# Step 5: Load kernel modules
+# Load kernel modules
 log "Configuring kernel modules..."
 cat <<EOF >/etc/modules-load.d/k8s.conf
 overlay
@@ -99,7 +80,7 @@ else
     exit 11
 fi
 
-# Step 6: Configure sysctl parameters
+# Configure sysctl parameters
 log "Configuring sysctl parameters..."
 cat <<EOF >/etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
@@ -117,7 +98,7 @@ else
     exit 1
 fi
 
-# Step 7: Install CRI-O
+# Install CRI-O
 log "Adding CRI-O repository..."
 cat <<EOF | tee /etc/yum.repos.d/cri-o.repo
 [cri-o]
@@ -135,7 +116,7 @@ log "Installing CRI-O..."
 dnf install -y cri-o >> "$LOG_FILE" 2>&1
 log "CRI-O installed."
 
-# Step 8: Configure CRI-O
+# Configure CRI-O
 log "Configuring CRI-O..."
 if ! grep -q "cgroup_manager = \"systemd\"" /etc/crio/crio.conf; then
     cat <<EOF >>/etc/crio/crio.conf
@@ -151,7 +132,7 @@ registries = ["docker.io", "quay.io"]
 EOF
 log "CRI-O configured."
 
-# Step 9: Enable and start CRI-O
+# Enable and start CRI-O
 log "Enabling and starting CRI-O..."
 systemctl daemon-reload >> "$LOG_FILE" 2>&1
 systemctl enable crio --now >> "$LOG_FILE" 2>&1
@@ -163,7 +144,7 @@ else
     exit 1
 fi
 
-# Step 10: Install Kubernetes tools
+# Install Kubernetes tools
 log "Adding Kubernetes repository..."
 cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
@@ -180,25 +161,25 @@ log "Installing Kubernetes tools..."
 dnf install -y kubelet kubeadm kubectl >> "$LOG_FILE" 2>&1
 log "Kubernetes tools installed."
 
-# Step 11: Configure kubelet
+# Configure kubelet
 #log "Configuring kubelet..."
 #cat <<EOF >/var/lib/kubelet/kubeadm-flags.env
 #KUBELET_KUBEADM_ARGS="--container-runtime=remote --container-runtime-endpoint=unix:///var/run/crio/crio.sock --cgroup-driver=systemd"
 #EOF
 #log "Kubelet configured."
 
-# Step 12: Enable kubelet service
+# Enable kubelet service
 #log "Enabling kubelet service..."
 #systemctl enable kubelet >> "$LOG_FILE" 2>&1
 #log "Kubelet service enabled (not started, awaiting cluster join)."
 
-# Step 13: Install CNI plugins
+# Install CNI plugins
 log "Installing CNI plugins..."
 mkdir -p /opt/cni/bin
 curl -L "https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_VERSION}/cni-plugins-linux-${ARCH}-${CNI_PLUGINS_VERSION}.tgz" | tar -C /opt/cni/bin -xz >> "$LOG_FILE" 2>&1
 log "CNI plugins installed."
 
-# Step 14: Verify node preparation
+# Verify node preparation
 log "Verifying node preparation..."
 if crictl info >/dev/null 2>&1; then
     log "CRI-O runtime is ready."
@@ -217,7 +198,7 @@ else
     exit 1
 fi
 
-# Step 15: Warn about missing network plugin and CoreDNS impact
+# Warn about missing network plugin and CoreDNS impact
 log "WARNING: A Container Network Interface (CNI) plugin (e.g., Calico, Flannel, Cilium) has not been installed yet."
 log "This will result in 'NetworkReady=false' in 'crictl info' output until a CNI plugin is configured."
 log "Without a CNI plugin, CoreDNS (the default Kubernetes DNS service) pods will remain in 'Pending' or 'CrashLoopBackOff' state because they cannot communicate over the pod network."
@@ -225,7 +206,7 @@ log "A CNI plugin will be applied automatically when you run 'kubeadm init' (con
 log "For example, you can install Calico after cluster initialization using:"
 log "  kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"
 
-# Step 16: Suggest kubelet/kubeadm init order
+# Suggest kubelet/kubeadm init order
 log "SUGGESTION: Do not start the kubelet service manually before running 'kubeadm init' or 'kubeadm join'."
 log "For a control plane node, run 'kubeadm init' first to initialize the cluster, which will automatically start kubelet."
 log "For a worker node, run 'kubeadm join' to join the cluster, which will also start kubelet."
