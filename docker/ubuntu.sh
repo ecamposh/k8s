@@ -1,3 +1,5 @@
+#!/bin/bash
+
 cat <<- EOF | sudo tee /etc/modules-load.d/docker.conf
     overlay
     br_netfilter
